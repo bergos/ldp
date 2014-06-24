@@ -1,0 +1,9 @@
+{
+	"@context": {
+		"foaf": "http://xmlns.com/foaf/0.1/"
+	},
+	"@id": "https://www.example.com/john/card#me",
+	"foaf:img": {
+		"@id": "https://www.example.com/john/files/me3.jpg"
+	}
+}

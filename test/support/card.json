@@ -1,0 +1,43 @@
+{
+	"@context": {
+		"cert": "http://www.w3.org/ns/auth/cert#",
+		"foaf": "http://xmlns.com/foaf/0.1/",
+		"xsd": "http://www.w3.org/2001/XMLSchema#"
+	},
+	"@id": "https://www.example.com/john/card#me",
+	"@type": "foaf:Person",
+	"foaf:name": "John Smith",
+	"foaf:firstName": "John",
+	"foaf:lastName": "Doe",
+	"foaf:nick": "Johnny",
+	"foaf:birthday": "1984-01-01",
+	"foaf:img": [{
+		"@id": "https://www.example.com/john/files/me.jpg"
+	},{
+		"@id": "https://www.example.com/john/files/me2.jpg"
+	}],
+	"foaf:account": [{
+		"@type": "foaf:OnlineAccount",
+		"foaf:accountName": "John.Doe",
+		"foaf:accountServiceHomepage": {
+			"@id": "http://www.facebook.com"
+		}
+	},{
+		"@type": "foaf:OnlineAccount",
+		"foaf:accountName": "JohnDoe",
+		"foaf:accouttServiceHomepage": {
+			"@id": "https://plus.google.com"
+		}
+	}],
+	"cert:key": {
+		"@type": "cert:RSAPublicKey",
+		"cert:exponent": {
+			"@type": "xsd:integer",
+			"@value": "65537"
+		},
+		"cert:modulus": {
+			"@type": "xsd:hexBinary",
+			"@value": "abcdef"
+		}
+	}
+}

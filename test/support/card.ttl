@@ -1,0 +1,22 @@
+@prefix cert: <http://www.w3.org/ns/auth/cert#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+
+<https://www.example.com/john/card#me> a foaf:Person;
+	foaf:name "John Smith";
+	foaf:firstName "John";
+	foaf:lastName "Doe";
+	foaf:nick "Johnny";
+	foaf:birthday "1984-01-01";
+	foaf:img <https://www.example.com/john/files/me.jpg>;
+	foaf:img <https://www.example.com/john/files/me2.jpg>;
+	foaf:account [ a foaf:OnlineAccount;
+		foaf:accountName "John.Doe";
+		foaf:accountServiceHomepage <http://www.facebook.com>;
+	], [ a foaf:OnlineAccount;
+		foaf:accountName "JohnDoe";
+		foaf:accouttServiceHomepage <https://plus.google.com>;
+	];
+	cert:key [ a cert:RSAPublicKey;
+		cert:exponent 65537;
+		cert:modulus "abcdef"^^<http://www.w3.org/2001/XMLSchema#hexBinary>
+	].
