@@ -60,6 +60,8 @@ var Ldp = function(rdf, store, options) {
 
 		if(req.method == 'GET') {
 			self.get(req, res, next, iri, agent, application);
+		} else if(req.method == 'HEAD') {
+			self.get(req, res, next, iri, agent, application, true);
 		} else if(req.method == 'PATCH') {
 			self.patch(req, res, next, iri, agent, application);
 		} else if(req.method == 'PUT') {
@@ -71,7 +73,7 @@ var Ldp = function(rdf, store, options) {
 		}
 	};
 
-	self.get = function(req, res, next, iri, agent, application) {
+	self.get = function(req, res, next, iri, agent, application, skipBody) {
 		var mimeType = self.serializers.find(req.headers.accept);
 
 		if(mimeType == null)
@@ -84,7 +86,11 @@ var Ldp = function(rdf, store, options) {
 			self.serializers[mimeType](graph, function(data) {
 				res.statusCode = 200; // OK
 				res.setHeader('Content-Type', mimeType);
-				res.write(data);
+				
+				if (!skipBody) {
+					res.write(data);
+				}
+
 				res.end();
 			}, iri);
 		}, agent, application);
