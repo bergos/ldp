@@ -1,10 +1,10 @@
-var assert = require('assert');
-var fs = require('fs');
-var request  = require('superagent');
+var
+  assert = require('assert'),
+  fs = require('fs'),
+  rdf = require('rdf-interfaces'),
+  request  = require('superagent');
 
-//var rdf = require('rdf-interfaces');
-var rdf = new (require('rdf_js_interface')).RDFEnvironment();
-require('rdf-ext')(rdf, {replaceMerge:true});
+require('rdf-ext')(rdf);
 
 var utils = require('rdf-test-utils')(rdf);
 
@@ -12,230 +12,234 @@ var utils = require('rdf-test-utils')(rdf);
 //TODO: earl reports (jsonld projects contains one)
 
 describe('ldp', function() {
-	var server = null;
+  var server = null;
 
-	before(function(done) {
-		server = new (require(__dirname + '/support/server'));
-		server.start(done);
-	});
+  before(function(done) {
+    server = new (require(__dirname + '/support/server'));
+    server.start(done);
+  });
 
-	after(function(done) {
-		server.stop(done);
-	});
+  after(function(done) {
+    server.stop(done);
+  });
 
-	describe('Turtle format', function() {
-		var card = null;
-		var card2 = null;
-		var cardGraph = null;
-		var card2Graph = null;
-		var card2FullGraph = null;
+  describe('Turtle format', function() {
+    var
+      card = null,
+      card2 = null,
+      cardGraph = null,
+      card2Graph = null,
+      card2FullGraph = null;
 
-		before(function(done) {
-			card = fs.readFileSync(__dirname + '/support/card.ttl').toString();
-			card2 = fs.readFileSync(__dirname + '/support/card2.ttl').toString();
+    before(function(done) {
+      card = fs.readFileSync(__dirname + '/support/card.ttl').toString();
+      card2 = fs.readFileSync(__dirname + '/support/card2.ttl').toString();
 
-			utils.p.parseTurtle(card)
-				.then(function(graph) { cardGraph = graph; })
-				.then(function() { return utils.p.parseTurtle(card2); })
-				.then(function(graph) { card2Graph = graph; })
-				.then(function() {
-					card2FullGraph = cardGraph.merge(card2Graph);
-					done();
-				});
-		});
+      utils.p.parseTurtle(card)
+        .then(function(graph) { cardGraph = graph; })
+        .then(function() { return utils.p.parseTurtle(card2); })
+        .then(function(graph) { card2Graph = graph; })
+        .then(function() {
+          card2FullGraph = cardGraph.merge(card2Graph);
 
-		it('should add a graph using PUT method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/turtle/card1');
+          done();
+      });
+    });
 
-			var putRequest = request
-				.put('http://localhost:8080/turtle/card1')
-				.send(card)
-				.set('Content-Type', 'text/turtle');
+    it('should add a graph using PUT method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card1');
 
-			var getRequest = request
-				.get('http://localhost:8080/turtle/card1')
-				.set('Accept', 'text/turtle')
-				.buffer();
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card1')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function(res) { return utils.p.parseTurtle(res.text); })
-				.then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
-				.then(function() { done(); });
-		});
+      var getRequest = request
+        .get('http://localhost:8080/turtle/card1')
+        .set('Accept', 'text/turtle')
+        .buffer();
 
-		it('should clear a graph using DELETE method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/turtle/card2');
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseTurtle(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
+        .then(function() { done(); });
+      });
 
-			var putRequest = request
-				.put('http://localhost:8080/turtle/card2')
-				.send(card)
-				.set('Content-Type', 'text/turtle');
+    it('should clear a graph using DELETE method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card2');
 
-			var deleteRequest = request
-				.del('http://localhost:8080/turtle/card2');
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card2')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
 
-			var getRequest = request
-				.get('http://localhost:8080/turtle/card2')
-				.set('Accept', 'text/turtle')
-				.buffer();
+      var deleteRequest = request
+        .del('http://localhost:8080/turtle/card2');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(deleteRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return (res.statusType == 4 ? null : utils.p.parseTurtle(res.text)); })
-				.then(function(graph) { return utils.p.assertGraphEmpty(graph); })
-				.then(function() { done(); });
-		});
+      var getRequest = request
+        .get('http://localhost:8080/turtle/card2')
+        .set('Accept', 'text/turtle')
+        .buffer();
 
-		it('should add triples to a graph using PATCH method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/turtle/card3');
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(deleteRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return (res.statusType == 4 ? null : utils.p.parseTurtle(res.text)); })
+        .then(function(graph) { return utils.p.assertGraphEmpty(graph); })
+        .then(function() { done(); });
+    });
 
-			var putRequest = request
-				.put('http://localhost:8080/turtle/card3')
-				.send(card)
-				.set('Content-Type', 'text/turtle');
+    it('should add triples to a graph using PATCH method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card3');
 
-			var patchRequest = request
-				.patch('http://localhost:8080/turtle/card3')
-				.send(card2)
-				.set('Content-Type', 'text/turtle');
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card3')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
 
-			var getRequest = request
-				.get('http://localhost:8080/turtle/card3')
-				.set('Accept', 'text/turtle')
-				.buffer();
+      var patchRequest = request
+        .patch('http://localhost:8080/turtle/card3')
+        .send(card2)
+        .set('Content-Type', 'text/turtle');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(patchRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function(res) { return utils.p.parseTurtle(res.text); })
-				.then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
-				.then(function() { done(); });
-		});
-	});
+      var getRequest = request
+        .get('http://localhost:8080/turtle/card3')
+        .set('Accept', 'text/turtle')
+        .buffer();
 
-	describe('JSON-LD format', function() {
-		var card = null;
-		var card2 = null;
-		var cardGraph = null;
-		var card2Graph = null;
-		var card2FullGraph = null;
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(patchRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseTurtle(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
+        .then(function() { done(); });
+      });
+    });
 
-		before(function(done) {
-			card = fs.readFileSync(__dirname + '/support/card.json').toString();
-			card2 = fs.readFileSync(__dirname + '/support/card2.json').toString();
+  describe('JSON-LD format', function() {
+    var
+      card = null,
+      card2 = null,
+      cardGraph = null,
+      card2Graph = null,
+      card2FullGraph = null;
 
-			utils.p.parseJsonLd(card)
-				.then(function(graph) { cardGraph = graph; })
-				.then(function() { return utils.p.parseJsonLd(card2); })
-				.then(function(graph) { card2Graph = graph; })
-				.then(function() {
-					card2FullGraph = cardGraph.merge(card2Graph);
-					done();
-				});
-		});
+    before(function(done) {
+      card = fs.readFileSync(__dirname + '/support/card.json').toString();
+      card2 = fs.readFileSync(__dirname + '/support/card2.json').toString();
 
-		it('should add a graph using PUT method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/jsonld/card1');
+      utils.p.parseJsonLd(card)
+        .then(function(graph) { cardGraph = graph; })
+        .then(function() { return utils.p.parseJsonLd(card2); })
+        .then(function(graph) { card2Graph = graph; })
+        .then(function() {
+          card2FullGraph = cardGraph.merge(card2Graph);
 
-			var putRequest = request
-				.put('http://localhost:8080/jsonld/card1')
-				.send(card)
-				.set('Content-Type', 'application/ld+json');
+          done();
+      });
+    });
 
-			var getRequest = request
-				.get('http://localhost:8080/jsonld/card1')
-				.set('Accept', 'application/ld+json')
-				.buffer();
+    it('should add a graph using PUT method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/jsonld/card1');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function(res) { return utils.p.parseJsonLd(res.text); })
-				.then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
-				.then(function() { done(); });
-		});
+      var putRequest = request
+        .put('http://localhost:8080/jsonld/card1')
+        .send(card)
+        .set('Content-Type', 'application/ld+json');
 
-		it('should clear a graph using DELETE method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/jsonld/card2');
+      var getRequest = request
+        .get('http://localhost:8080/jsonld/card1')
+        .set('Accept', 'application/ld+json')
+        .buffer();
 
-			var putRequest = request
-				.put('http://localhost:8080/jsonld/card2')
-				.send(card)
-				.set('Content-Type', 'application/ld+json');
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseJsonLd(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
+        .then(function() { done(); });
+    });
 
-			var deleteRequest = request
-				.del('http://localhost:8080/jsonld/card2');
+    it('should clear a graph using DELETE method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/jsonld/card2');
 
-			var getRequest = request
-				.get('http://localhost:8080/jsonld/card2')
-				.set('Accept', 'application/ld+json')
-				.buffer();
+      var putRequest = request
+        .put('http://localhost:8080/jsonld/card2')
+        .send(card)
+        .set('Content-Type', 'application/ld+json');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(deleteRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return (res.statusType == 4 ? null : utils.p.parseJsonLd(res.text)); })
-				.then(function(graph) { return utils.p.assertGraphEmpty(graph); })
-				.then(function() { done(); });
-		});
+      var deleteRequest = request
+        .del('http://localhost:8080/jsonld/card2');
 
-		it('should add triples to a graph using PATCH method', function(done) {
-			var clearRequest = request
-				.del('http://localhost:8080/jsonld/card3');
+      var getRequest = request
+        .get('http://localhost:8080/jsonld/card2')
+        .set('Accept', 'application/ld+json')
+        .buffer();
 
-			var putRequest = request
-				.put('http://localhost:8080/jsonld/card3')
-				.send(card)
-				.set('Content-Type', 'application/ld+json');
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(deleteRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return (res.statusType == 4 ? null : utils.p.parseJsonLd(res.text)); })
+        .then(function(graph) { return utils.p.assertGraphEmpty(graph); })
+        .then(function() { done(); });
+    });
 
-			var patchRequest = request
-				.patch('http://localhost:8080/jsonld/card3')
-				.send(card2)
-				.set('Content-Type', 'application/ld+json');
+    it('should add triples to a graph using PATCH method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/jsonld/card3');
 
-			var getRequest = request
-				.get('http://localhost:8080/jsonld/card3')
-				.set('Accept', 'application/ld+json')
-				.buffer();
+      var putRequest = request
+        .put('http://localhost:8080/jsonld/card3')
+        .send(card)
+        .set('Content-Type', 'application/ld+json');
 
-			utils.p.request(clearRequest)
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(putRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(patchRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function() { return utils.p.request(getRequest); })
-				.then(function(res) { return utils.p.assertStatusSuccess(res); })
-				.then(function(res) { return utils.p.parseJsonLd(res.text); })
-				.then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
-				.then(function() { done(); });
-		});
-	});
+      var patchRequest = request
+        .patch('http://localhost:8080/jsonld/card3')
+        .send(card2)
+        .set('Content-Type', 'application/ld+json');
+
+      var getRequest = request
+        .get('http://localhost:8080/jsonld/card3')
+        .set('Accept', 'application/ld+json')
+        .buffer();
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(patchRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseJsonLd(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
+        .then(function() { done(); });
+    });
+  });
 });

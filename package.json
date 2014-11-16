@@ -1,27 +1,26 @@
 {
-	"name": "ldp",
-	"version": "0.1.1",
-	"description": "Node.js LDP implementation",
-	"main": "ldp.js",
-	"scripts": {
-		"test": "mocha"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git://github.com/bergos/ldp.git"
-	},
-	"keywords": [
-		"LDP",
-		"RDF",
-		"RDF Interfaces"
-	],
-	"author": "Thomas Bergwinkl",
-	"license": "MIT",
-	"bugs": {
-		"url": "https://github.com/bergos/ldp/issues"
-	},
-	"homepage": "https://github.com/bergos/ldp",
-	"dependencies": {
-	},
-	"readmeFilename": "README.md"
+  "name": "ldp",
+  "version": "0.1.2",
+  "description": "Node.js LDP implementation",
+  "main": "ldp.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bergos/ldp.git"
+  },
+  "keywords": [
+    "LDP",
+    "RDF",
+    "RDF Interfaces"
+  ],
+  "author": "Thomas Bergwinkl",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bergos/ldp/issues"
+  },
+  "homepage": "https://github.com/bergos/ldp",
+  "dependencies": {},
+  "readmeFilename": "README.md"
 }

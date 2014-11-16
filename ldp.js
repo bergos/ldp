@@ -70,21 +70,21 @@ var Ldp = function (rdf, store, options) {
     self.log((new Date()).toISOString() + ' ' + req.method + ': ' + iri + ' ' + agent + ' ' + application);
 
     if (req.method == 'GET') {
-      self.get(req, res, next, iri, agent, application);
+      self.get(req, res, next, iri, {agent: agent, application: application});
     } else if (req.method == 'HEAD') {
-      self.get(req, res, next, iri, agent, application, true);
+      self.get(req, res, next, iri, {agent: agent, application: application, skipBody: true});
     } else if (req.method == 'PATCH') {
-      self.patch(req, res, next, iri, agent, application);
+      self.patch(req, res, next, iri, {agent: agent, application: application});
     } else if (req.method == 'PUT') {
-      self.put(req, res, next, iri, agent, application);
+      self.put(req, res, next, iri, {agent: agent, application: application});
     } else if (req.method == 'DELETE') {
-      self.del(req, res, next, iri, agent, application);
+      self.del(req, res, next, iri, {agent: agent, application: application});
     } else {
       self.error.methodNotAllowed(req, res, next);
     }
   };
 
-  self.get = function (req, res, next, iri, agent, application, skipBody) {
+  self.get = function (req, res, next, iri, options) {
     var mimeType = self.serializers.find(req.headers.accept);
 
     if (mimeType == null) {
@@ -100,16 +100,16 @@ var Ldp = function (rdf, store, options) {
         res.statusCode = 200; // OK
         res.setHeader('Content-Type', mimeType);
 				
-        if (!skipBody) {
+        if (options == null || !('skipBody' in options) || !options.skipBody) {
           res.write(data);
         }
 
         res.end();
       }, iri);
-    }, agent, application);
+    }, options);
   };
 
-  self.patch = function (req, res, next, iri, agent, application) {
+  self.patch = function (req, res, next, iri, options) {
     var mimeType = self.parsers.find(req.headers['content-type']);
 
     if (mimeType == null) {
@@ -133,12 +133,12 @@ var Ldp = function (rdf, store, options) {
 
           res.statusCode = 204; // No Content
           res.end();
-        }, agent, application);
+        }, options);
       }, iri);
     });
   };
 
-  self.put = function (req, res, next, iri, agent, application) {
+  self.put = function (req, res, next, iri, options) {
     var mimeType = self.parsers.find(req.headers['content-type']);
 
     if (mimeType == null) {
@@ -162,12 +162,12 @@ var Ldp = function (rdf, store, options) {
 
           res.statusCode = 204; // No Content
           res.end();
-        }, agent, application);
+        }, options);
       }, iri);
     });
   };
 
-  self.del = function (req, res, next, iri, agent, application) {
+  self.del = function (req, res, next, iri, options) {
     store.delete(iri, function (success) {
       if (!success) {
         return self.error.forbidden(req, res, next);
@@ -175,7 +175,7 @@ var Ldp = function (rdf, store, options) {
 
       res.statusCode = 204; // No Content
       res.end();
-    }, agent, application);
+    }, options);
   };
 };
 
