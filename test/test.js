@@ -2,14 +2,11 @@ var
   assert = require('assert'),
   fs = require('fs'),
   rdf = require('rdf-interfaces'),
-  request  = require('superagent');
+  request  = require('superagent'),
+  utils = require('rdf-test-utils')(rdf);
 
 require('rdf-ext')(rdf);
 
-var utils = require('rdf-test-utils')(rdf);
-
-
-//TODO: earl reports (jsonld projects contains one)
 
 describe('ldp', function() {
   var server = null;
@@ -21,6 +18,18 @@ describe('ldp', function() {
 
   after(function(done) {
     server.stop(done);
+  });
+
+  it('should return method not allowed for unknown method', function (done) {
+    var connectRequest = request
+      .get('http://localhost:8080/turtle/card1');
+
+    connectRequest.method = 'TRACE';
+
+    utils.p.request(connectRequest)
+      .then(function(res) { return assert.equal(res.status, 405); })
+      .then(function() { done(); })
+      .catch(function (error) { done(error); });
   });
 
   describe('Turtle format', function() {
@@ -46,6 +55,30 @@ describe('ldp', function() {
       });
     });
 
+    it('should support HEAD method', function(done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card1');
+
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card1')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
+
+      var headRequest = request
+        .head('http://localhost:8080/turtle/card1')
+        .set('Accept', 'text/turtle')
+        .buffer();
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(headRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
+
     it('should add a graph using PUT method', function(done) {
       var clearRequest = request
         .del('http://localhost:8080/turtle/card1');
@@ -68,8 +101,9 @@ describe('ldp', function() {
         .then(function(res) { return utils.p.assertStatusSuccess(res); })
         .then(function(res) { return utils.p.parseTurtle(res.text); })
         .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
-        .then(function() { done(); });
-      });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
 
     it('should clear a graph using DELETE method', function(done) {
       var clearRequest = request
@@ -97,7 +131,8 @@ describe('ldp', function() {
         .then(function() { return utils.p.request(getRequest); })
         .then(function(res) { return (res.statusType == 4 ? null : utils.p.parseTurtle(res.text)); })
         .then(function(graph) { return utils.p.assertGraphEmpty(graph); })
-        .then(function() { done(); });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
     });
 
     it('should add triples to a graph using PATCH method', function(done) {
@@ -129,9 +164,77 @@ describe('ldp', function() {
         .then(function(res) { return utils.p.assertStatusSuccess(res); })
         .then(function(res) { return utils.p.parseTurtle(res.text); })
         .then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
-        .then(function() { done(); });
-      });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
     });
+
+    it('should support Accept header with q value', function (done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card1');
+
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card1')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
+
+      var getRequest = request
+        .get('http://localhost:8080/turtle/card1')
+        .set('Accept', 'text/html;q=0.3, application/ld+json;q=0.5, text/turtle;q=0.7')
+        .buffer();
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseTurtle(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
+
+    it('should return not acceptable for unknown mimetype in Accept header', function (done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card1');
+
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card1')
+        .send(card)
+        .set('Content-Type', 'text/turtle');
+
+      var getRequest = request
+        .get('http://localhost:8080/turtle/card1')
+        .set('Accept', 'image/jpeg')
+        .buffer();
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return assert.equal(res.status, 406); })
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
+
+    it('should return not acceptable for unknown mimetype', function (done) {
+      var clearRequest = request
+        .del('http://localhost:8080/turtle/card1');
+
+      var putRequest = request
+        .put('http://localhost:8080/turtle/card1')
+        .send(card)
+        .set('Content-Type', 'image/jpeg');
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return assert.equal(res.status, 406); })
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
+  });
 
   describe('JSON-LD format', function() {
     var
@@ -178,7 +281,8 @@ describe('ldp', function() {
         .then(function(res) { return utils.p.assertStatusSuccess(res); })
         .then(function(res) { return utils.p.parseJsonLd(res.text); })
         .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
-        .then(function() { done(); });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
     });
 
     it('should clear a graph using DELETE method', function(done) {
@@ -207,7 +311,8 @@ describe('ldp', function() {
         .then(function() { return utils.p.request(getRequest); })
         .then(function(res) { return (res.statusType == 4 ? null : utils.p.parseJsonLd(res.text)); })
         .then(function(graph) { return utils.p.assertGraphEmpty(graph); })
-        .then(function() { done(); });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
     });
 
     it('should add triples to a graph using PATCH method', function(done) {
@@ -239,7 +344,34 @@ describe('ldp', function() {
         .then(function(res) { return utils.p.assertStatusSuccess(res); })
         .then(function(res) { return utils.p.parseJsonLd(res.text); })
         .then(function(graph) { return utils.p.assertGraphEqual(graph, card2FullGraph); })
-        .then(function() { done(); });
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
+    });
+
+    it('should support Accept header with q value', function (done) {
+      var clearRequest = request
+        .del('http://localhost:8080/jsonld/card1');
+
+      var putRequest = request
+        .put('http://localhost:8080/jsonld/card1')
+        .send(card)
+        .set('Content-Type', 'application/ld+json');
+
+      var getRequest = request
+        .get('http://localhost:8080/jsonld/card1')
+        .set('Accept', 'text/html;q=0.3, application/ld+json;q=0.7, text/turtle;q=0.5')
+        .buffer();
+
+      utils.p.request(clearRequest)
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(putRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function() { return utils.p.request(getRequest); })
+        .then(function(res) { return utils.p.assertStatusSuccess(res); })
+        .then(function(res) { return utils.p.parseJsonLd(res.text); })
+        .then(function(graph) { return utils.p.assertGraphEqual(graph, cardGraph); })
+        .then(function() { done(); })
+        .catch(function (error) { done(error); });
     });
   });
 });
