@@ -21,6 +21,15 @@
     "url": "https://github.com/bergos/ldp/issues"
   },
   "homepage": "https://github.com/bergos/ldp",
-  "dependencies": {},
+  "dependencies": {
+    "mimeparse": "0.1.*"
+  },
+  "devDependencies": {
+    "mocha": "2.1.*",
+    "rdf-ext": "0.1.*",
+    "rdf-interfaces": "0.1.*",
+    "rdf-test-utils": "0.1.*",
+    "superagent": "0.21.*"
+  },
   "readmeFilename": "README.md"
 }

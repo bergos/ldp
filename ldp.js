@@ -1,3 +1,7 @@
+var
+  mimeparse = require('mimeparse');
+
+
 var Ldp = function (rdf, store, options) {
   var self = this;
 
@@ -27,27 +31,23 @@ var Ldp = function (rdf, store, options) {
   };
 
   self.serializers.find = function (field) {
-    var keys = Object.keys(self.serializers);
+    var mimetype = mimeparse.bestMatch(Object.keys(self.serializers), field);
 
-    for (var i = 0; i < keys.length; i++) {
-      if (field.indexOf(keys[i]) >= 0) {
-        return keys[i];
-      }
+    if (mimetype === '') {
+      return null;
     }
 
-    return null;
+    return mimetype;
   };
 
   self.parsers.find = function (field) {
-    var keys = Object.keys(self.parsers);
+    var mimetype = mimeparse.bestMatch(Object.keys(self.parsers), field);
 
-    for (var i = 0; i < keys.length; i++) {
-      if (field.indexOf(keys[i]) >= 0) {
-        return keys[i];
-      }
+    if (mimetype === '') {
+      return null;
     }
 
-    return null;
+    return mimetype;
   };
 
   self.requestIri = function (req) {
@@ -55,9 +55,16 @@ var Ldp = function (rdf, store, options) {
   };
 
   self.middleware = function (req, res, next) {
-    var iri = self.requestIri(req);
-    var agent = self.defaultAgent;
-    var application = null;
+    var
+      iri = self.requestIri(req),
+      agent = self.defaultAgent,
+      application = null;
+
+    if (next == null) {
+      next = function () {
+        self.error.notFound(req, res);
+      }
+    }
 
     if (('session' in req) &&  ('agent' in req.session) && (req.session.agent != null)) {
       agent = req.session.agent;
@@ -142,7 +149,7 @@ var Ldp = function (rdf, store, options) {
     var mimeType = self.parsers.find(req.headers['content-type']);
 
     if (mimeType == null) {
-      return next();
+      return self.error.notAcceptable(req, res, next);
     }
 
     var content = '';
