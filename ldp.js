@@ -10,24 +10,28 @@ function Ldp (rdf, store, options) {
   }
 
   self.error = {};
-  self.error.forbidden = function (req, res) {
-    res.writeHead(403);
-    res.end('<h1>Forbidden</h1>');
+  self.error.forbidden = function (req, res, next) {
+    var err = new Error('Forbidden');
+    err.status = err.statusCode = 403;
+    next(err);
   };
 
-  self.error.notFound = function (req, res) {
-    res.writeHead(404);
-    res.end('<h1>Not Found</h1>');
+  self.error.notFound = function (req, res, next) {
+    var err = new Error('Not Found');
+    err.status = err.statusCode = 404;
+    next(err);
   };
 
-  self.error.methodNotAllowed = function (req, res) {
-    res.writeHead(405);
-    res.end('<h1>Method Not Allowed</h1>');
+  self.error.methodNotAllowed = function (req, res, next) {
+    var err = new Error('Method Not Allowed');
+    err.status = err.statusCode = 405;
+    next(err);
   };
 
-  self.error.notAcceptable = function (req, res) {
-    res.writeHead(406);
-    res.end('<h1>Not Acceptable</h1>');
+  self.error.notAcceptable = function (req, res, next) {
+    var err = new Error('Not Acceptable');
+    err.status = err.statusCode = 406;
+    next(err);
   };
 
   self.log = 'log' in options ? options.log : function () {};
@@ -75,8 +79,16 @@ function Ldp (rdf, store, options) {
     var application = null;
 
     if (next == null) {
-      next = function () {
-        self.error.notFound(req, res);
+      next = function defaultNext (err) {
+
+        if (err) {
+          res.writeHead(err.status || err.statusCode);
+          return res.end(err.message || '');
+        }
+
+        if (!res.statusCode) {
+          return self.error.notFound(req, res, defaultNext);
+        }
       };
     }
 
@@ -120,12 +132,12 @@ function Ldp (rdf, store, options) {
       self.serializers[mimeType](graph, function (data) {
         res.statusCode = 200; // OK
         res.setHeader('Content-Type', mimeType);
-				
+
         if (options == null || !('skipBody' in options) || !options.skipBody) {
           res.write(data);
         }
-
         res.end();
+        next();
       }, iri);
     }, options);
   };
@@ -154,6 +166,7 @@ function Ldp (rdf, store, options) {
 
           res.statusCode = 204; // No Content
           res.end();
+          next();
         }, options);
       }, iri);
     });
@@ -173,7 +186,7 @@ function Ldp (rdf, store, options) {
     }).on('end', function () {
       self.parsers[mimeType](content, function (graph) {
         if (graph == null) {
-          return self.error.notAcceptable(req, res);
+          return self.error.notAcceptable(req, res, next);
         }
 
         store.add(iri, graph, function (added) {
@@ -183,6 +196,7 @@ function Ldp (rdf, store, options) {
 
           res.statusCode = 204; // No Content
           res.end();
+          next();
         }, options);
       }, iri);
     });
@@ -196,6 +210,7 @@ function Ldp (rdf, store, options) {
 
       res.statusCode = 204; // No Content
       res.end();
+      next();
     }, options);
   };
 }
