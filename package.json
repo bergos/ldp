@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/bergos/ldp",
   "dependencies": {
-    "mimeparse": "0.1.*"
+    "mimeparse": "^0.1.4"
   },
   "devDependencies": {
     "mocha": "2.1.*",
