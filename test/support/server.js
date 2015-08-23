@@ -7,17 +7,17 @@ var
 require('rdf-ext')(rdf);
 
 
-var LdpServer = function() {
+var LdpServer = function () {
   var
     store = new rdf.InMemoryStore(),
     ldp = new Ldp(rdf, store/*, {log:console.log}*/),
     server = http.createServer(ldp.middleware);
 
-  this.start = function(done) {
+  this.start = function (done) {
     server.listen('8080', 'localhost', done);
   };
 
-  this.stop = function(done) {
+  this.stop = function (done) {
     server.close(done);
   }
 };

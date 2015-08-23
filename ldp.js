@@ -1,8 +1,8 @@
-var
-  mimeparse = require('mimeparse');
+module.exports = Ldp;
 
+var mimeparse = require('mimeparse');
 
-var Ldp = function (rdf, store, options) {
+function Ldp (rdf, store, options) {
   var self = this;
 
   if (options == null) {
@@ -10,10 +10,25 @@ var Ldp = function (rdf, store, options) {
   }
 
   self.error = {};
-  self.error.forbidden = function (req, res) { res.writeHead(403); res.end('<h1>Forbidden</h1>'); };
-  self.error.notFound = function (req, res) { res.writeHead(404); res.end('<h1>Not Found</h1>'); };
-  self.error.methodNotAllowed = function (req, res) { res.writeHead(405); res.end('<h1>Method Not Allowed</h1>'); };
-  self.error.notAcceptable = function (req, res) { res.writeHead(406); res.end('<h1>Not Acceptable</h1>'); };
+  self.error.forbidden = function (req, res) {
+    res.writeHead(403);
+    res.end('<h1>Forbidden</h1>');
+  };
+
+  self.error.notFound = function (req, res) {
+    res.writeHead(404);
+    res.end('<h1>Not Found</h1>');
+  };
+
+  self.error.methodNotAllowed = function (req, res) {
+    res.writeHead(405);
+    res.end('<h1>Method Not Allowed</h1>');
+  };
+
+  self.error.notAcceptable = function (req, res) {
+    res.writeHead(406);
+    res.end('<h1>Not Acceptable</h1>');
+  };
 
   self.log = 'log' in options ? options.log : function () {};
   self.defaultAgent = 'defaultAgent' in options ? options.defaultAgent : null;
@@ -51,22 +66,21 @@ var Ldp = function (rdf, store, options) {
   };
 
   self.requestIri = function (req) {
-    return 'http://localhost' + req.url; //TODO
+    return 'http://localhost' + req.url; // TODO
   };
 
   self.middleware = function (req, res, next) {
-    var
-      iri = self.requestIri(req),
-      agent = self.defaultAgent,
-      application = null;
+    var iri = self.requestIri(req);
+    var agent = self.defaultAgent;
+    var application = null;
 
     if (next == null) {
       next = function () {
         self.error.notFound(req, res);
-      }
+      };
     }
 
-    if (('session' in req) &&  ('agent' in req.session) && (req.session.agent != null)) {
+    if (('session' in req) && ('agent' in req.session) && (req.session.agent != null)) {
       agent = req.session.agent;
     }
 
@@ -76,15 +90,15 @@ var Ldp = function (rdf, store, options) {
 
     self.log((new Date()).toISOString() + ' ' + req.method + ': ' + iri + ' ' + agent + ' ' + application);
 
-    if (req.method == 'GET') {
+    if (req.method === 'GET') {
       self.get(req, res, next, iri, {agent: agent, application: application});
-    } else if (req.method == 'HEAD') {
+    } else if (req.method === 'HEAD') {
       self.get(req, res, next, iri, {agent: agent, application: application, skipBody: true});
-    } else if (req.method == 'PATCH') {
+    } else if (req.method === 'PATCH') {
       self.patch(req, res, next, iri, {agent: agent, application: application});
-    } else if (req.method == 'PUT') {
+    } else if (req.method === 'PUT') {
       self.put(req, res, next, iri, {agent: agent, application: application});
-    } else if (req.method == 'DELETE') {
+    } else if (req.method === 'DELETE') {
       self.del(req, res, next, iri, {agent: agent, application: application});
     } else {
       self.error.methodNotAllowed(req, res, next);
@@ -184,7 +198,4 @@ var Ldp = function (rdf, store, options) {
       res.end();
     }, options);
   };
-};
-
-
-module.exports = Ldp;
+}
