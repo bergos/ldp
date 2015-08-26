@@ -33,6 +33,12 @@ function Ldp (rdf, store, options) {
     err.status = err.statusCode = 406;
     next(err);
   };
+  
+  self.error.conflict = function (req, res, next) {
+    var err = new Error('Conflict');
+    err.status = err.statusCode = 409;
+    next(err);
+  };
 
   self.log = 'log' in options ? options.log : function () {};
   self.defaultAgent = 'defaultAgent' in options ? options.defaultAgent : null;
@@ -191,7 +197,7 @@ function Ldp (rdf, store, options) {
 
         store.add(iri, graph, function (added) {
           if (added == null) {
-            return self.error.forbidden(req, res, next);
+            return self.error.conflict(req, res, next);
           }
 
           res.statusCode = 204; // No Content
