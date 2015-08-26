@@ -205,7 +205,7 @@ function Ldp (rdf, store, options) {
   self.del = function (req, res, next, iri, options) {
     store.delete(iri, function (success) {
       if (!success) {
-        return self.error.forbidden(req, res, next);
+        return self.error.notFound(req, res, next);
       }
 
       res.statusCode = 204; // No Content
