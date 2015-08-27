@@ -194,7 +194,7 @@ function Ldp (rdf, store, options) {
             return self.error.forbidden(req, res, next);
           }
 
-          res.statusCode = 204; // No Content
+          res.statusCode = 201; // No Content
           res.end();
           next();
         }, options);
