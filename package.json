@@ -22,14 +22,17 @@
   },
   "homepage": "https://github.com/bergos/ldp",
   "dependencies": {
-    "mimeparse": "^0.1.4"
+    "concat-stream": "^1.5.0",
+    "negotiator": "^0.5.3"
   },
   "devDependencies": {
-    "mocha": "2.1.*",
-    "rdf-ext": "0.1.*",
-    "rdf-interfaces": "0.1.*",
-    "rdf-test-utils": "0.1.*",
-    "superagent": "0.21.*"
+    "bluebird": "^2.10.0",
+    "fs-blob-store": "^5.1.1",
+    "fs-extended": "^0.2.1",
+    "mocha": "^2.3.2",
+    "rdf-ext": "^0.2.6",
+    "rdf-test-utils": "^0.2.0",
+    "superagent": "^0.21.0"
   },
   "readmeFilename": "README.md"
 }
