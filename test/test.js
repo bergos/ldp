@@ -1,15 +1,18 @@
 /* global after, before, describe, it */
 
 var assert = require('assert')
-var fs = require('fs')
+var fs = require('fs-extended')
 var rdf = require('rdf-ext')()
 var request = require('superagent')
 var utils = require('rdf-test-utils')(rdf)
+var Promise = require('bluebird')
 
 describe('ldp', function () {
   var server = null
 
   before(function (done) {
+    fs.emptyDirSync('files')
+
     server = new (require(__dirname + '/support/server'))
     server.start(done)
   })
@@ -214,23 +217,6 @@ describe('ldp', function () {
         .then(function () { done() })
         .catch(function (error) { done(error) })
     })
-
-    it('should return not acceptable for unknown mimetype', function (done) {
-      var clearRequest = request
-        .del('http://localhost:8080/turtle/card1')
-
-      var putRequest = request
-        .put('http://localhost:8080/turtle/card1')
-        .send(card)
-        .set('Content-Type', 'image/jpeg')
-
-      utils.p.request(clearRequest)
-        .then(function (res) { return utils.p.assertStatusSuccess(res) })
-        .then(function () { return utils.p.request(putRequest) })
-        .then(function (res) { return assert.equal(res.status, 406) })
-        .then(function () { done() })
-        .catch(function (error) { done(error) })
-    })
   })
 
   describe('JSON-LD format', function () {
@@ -368,6 +354,86 @@ describe('ldp', function () {
         .then(function (graph) { return utils.p.assertGraphEqual(graph, cardGraph) })
         .then(function () { done() })
         .catch(function (error) { done(error) })
+    })
+  })
+
+  describe('BlobStore', function () {
+    it('should add a blob using PUT method', function (done) {
+      var putRequest = request
+        .put('http://localhost:8080/blob/string1')
+        .send('test')
+        .set('Content-Type', 'text/plain')
+
+      Promise.resolve().then(function () {
+        return utils.p.request(putRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 201)
+      }).asCallback(done)
+    })
+
+    it('should fetch a blob using GET method', function (done) {
+      var putRequest = request
+        .put('http://localhost:8080/blob/string4')
+        .send('test')
+        .set('Content-Type', 'text/plain')
+
+      var getRequest = request
+        .get('http://localhost:8080/blob/string4')
+        .set('Accept', 'text/plain')
+        .buffer()
+
+      Promise.resolve().then(function () {
+        return utils.p.request(putRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 201)
+      }).then(function () {
+        return utils.p.request(getRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 200)
+        assert.equal(res.text, 'test')
+      }).asCallback(done)
+    })
+
+    it('should fail with 404 fetching blob that doesn\'t exist using GET method', function (done) {
+      var getRequest = request
+        .get('http://localhost:8080/blob/string3')
+        .set('Accept', 'text/plain')
+        .buffer()
+
+      Promise.resolve().then(function () {
+        return utils.p.request(getRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 404)
+      }).asCallback(done)
+    })
+
+    it('should delete a blob using the DELETE method', function (done) {
+      var putRequest = request
+        .put('http://localhost:8080/blob/string4')
+        .send('test')
+        .set('Content-Type', 'text/plain')
+
+      var clearRequest = request
+        .del('http://localhost:8080/blob/string4')
+
+      var getRequest = request
+        .get('http://localhost:8080/blob/string4')
+        .set('Accept', 'text/plain')
+        .buffer()
+
+      Promise.resolve().then(function () {
+        return utils.p.request(putRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 201)
+      }).then(function () {
+        return utils.p.request(clearRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 204)
+      }).then(function () {
+        return utils.p.request(getRequest)
+      }).then(function (res) {
+        assert.equal(res.statusCode, 404)
+      }).asCallback(done)
     })
   })
 })

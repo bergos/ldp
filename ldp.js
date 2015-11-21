@@ -1,13 +1,16 @@
 module.exports = Ldp;
 
-var mimeparse = require('mimeparse');
+var concatStream = require('concat-stream');
+var mediaType = require('negotiator/lib/mediaType');
+var BlobStore = require('./blob-store');
 
-function Ldp (rdf, store, options) {
+function Ldp (rdf, options) {
   var self = this;
 
-  if (options == null) {
-    options = {};
-  }
+  options = options || {};
+
+  this.graphStore = options.graphStore;
+  this.blobStore = !!options.blobStore ? new BlobStore(options.blobStore, options.blobStoreOptions) : null;
 
   self.error = {};
   self.error.forbidden = function (req, res, next) {
@@ -40,6 +43,12 @@ function Ldp (rdf, store, options) {
     next(err);
   };
 
+  self.error.internalServerError = function (req, res, next) {
+    var err = new Error('Internal Server Error');
+    err.status = err.statusCode = 500;
+    next(err);
+  };
+
   self.log = 'log' in options ? options.log : function () {};
   self.defaultAgent = 'defaultAgent' in options ? options.defaultAgent : null;
   self.parsers = {};
@@ -55,24 +64,16 @@ function Ldp (rdf, store, options) {
       });
   };
 
-  self.serializers.find = function (field) {
-    var mimetype = mimeparse.bestMatch(Object.keys(self.serializers), field);
+  self.serializers.accepts = function (accepts) {
+    contentType = mediaType(accepts).shift();
 
-    if (mimetype === '') {
-      return null;
-    }
-
-    return mimetype;
+    return contentType in self.serializers ? contentType : null;
   };
 
-  self.parsers.find = function (field) {
-    var mimetype = mimeparse.bestMatch(Object.keys(self.parsers), field);
+  self.parsers.accepts = function (contentType) {
+    contentType = mediaType(contentType).shift();
 
-    if (mimetype === '') {
-      return null;
-    }
-
-    return mimetype;
+    return contentType in self.parsers ? contentType : null;
   };
 
   self.requestIri = function (req) {
@@ -123,49 +124,62 @@ function Ldp (rdf, store, options) {
     }
   };
 
-  self.get = function (req, res, next, iri, options) {
-    var mimeType = self.serializers.find(req.headers.accept);
+  var getGraph = function (req, res, next, iri, options, graph) {
+    var mimeType = self.serializers.accepts(req.headers.accept);
 
-    if (mimeType == null) {
-      return self.error.notAcceptable(req, res, next);
-    }
-
-    store.graph(iri, function (graph) {
-      if (graph == null) {
-        return self.error.notFound(req, res, next);
-      }
-
+    if (!mimeType) {
+      self.error.notAcceptable(req, res, next);
+    } else {
       self.serializers[mimeType](graph, function (data) {
         res.statusCode = 200; // OK
         res.setHeader('Content-Type', mimeType);
 
-        if (options == null || !('skipBody' in options) || !options.skipBody) {
+        if (!options || !options.skipBody) {
           res.write(data);
         }
+
         res.end();
         next();
       }, iri);
+    }
+  };
+
+  var getBlob = function (req, res, next, iri, options) {
+    var stream = self.blobStore.createReadStream(iri)
+
+    stream.on('error', function (error) {
+      self.error.notFound(req, res, next);
+    });
+
+    if (!stream) {
+      self.error.notFound(req, res, next);
+    } else {
+      stream.pipe(res);
+    }
+  };
+
+  self.get = function (req, res, next, iri, options) {
+    self.graphStore.graph(iri, function (graph) {
+      if (graph) {
+        getGraph(req, res, next, iri, options, graph)
+      } else {
+        getBlob(req, res, next, iri, options)
+      }
     }, options);
   };
 
-  self.patch = function (req, res, next, iri, options) {
-    var mimeType = self.parsers.find(req.headers['content-type']);
+  var patchGraph = function (req, res, next, iri, options, mimeType) {
+    req.on('error', function (error) {
+      self.error.internalServerError(req, res, next);
+    });
 
-    if (mimeType == null) {
-      return self.error.notAcceptable(req, res, next);
-    }
-
-    var content = '';
-
-    req.on('data', function (data) {
-      content += data.toString();
-    }).on('end', function () {
-      self.parsers[mimeType](content, function (graph) {
+    req.pipe(concatStream(function (data) {
+      self.parsers[mimeType](data.toString(), function (graph) {
         if (graph == null) {
           return self.error.notAcceptable(req, res, next);
         }
 
-        store.merge(iri, graph, function (merged) {
+        self.graphStore.merge(iri, graph, function (merged) {
           if (merged == null) {
             return self.error.forbidden(req, res, next);
           }
@@ -175,41 +189,75 @@ function Ldp (rdf, store, options) {
           next();
         }, options);
       }, iri);
-    });
+    }));
   };
 
-  self.put = function (req, res, next, iri, options) {
-    var mimeType = self.parsers.find(req.headers['content-type']);
+  var patchBlob = function (req, res, next, iri, options) {
+    self.error.notAcceptable(req, res, next);
+  };
 
-    if (mimeType == null) {
-      return self.error.notAcceptable(req, res, next);
+  self.patch = function (req, res, next, iri, options) {
+    var mimeType = self.parsers.accepts(req.headers['content-type']);
+
+    if (mimeType) {
+      patchGraph(req, res, next, iri, options, mimeType);
+    } else {
+      patchBlob(req, res, next, iri, options)
     }
+  };
 
-    var content = '';
+  var putGraph = function (req, res, next, iri, options, mimeType) {
+    req.on('error', function (error) {
+      self.error.internalServerError(req, res, next);
+    });
 
-    req.on('data', function (data) {
-      content += data.toString();
-    }).on('end', function () {
-      self.parsers[mimeType](content, function (graph) {
+    req.pipe(concatStream(function (data) {
+      self.parsers[mimeType](data.toString(), function (graph) {
         if (graph == null) {
           return self.error.notAcceptable(req, res, next);
         }
 
-        store.add(iri, graph, function (added) {
+        self.graphStore.add(iri, graph, function (added) {
           if (added == null) {
             return self.error.conflict(req, res, next);
           }
 
-          res.statusCode = 201; // No Content
+          res.statusCode = 201; // Created
           res.end();
           next();
         }, options);
       }, iri);
-    });
+    }));
   };
 
-  self.del = function (req, res, next, iri, options) {
-    store.delete(iri, function (success) {
+  var putBlob = function (req, res, next, iri, options) {
+    var stream = self.blobStore.createWriteStream(iri);
+
+    stream.on('finish', function () {
+      res.statusCode = 201; // Created
+      res.end();
+      next();
+    });
+
+    stream.on('error', function (error) {
+      self.internalServerError(req, res, next);
+    });
+
+    req.pipe(stream);
+  };
+
+  self.put = function (req, res, next, iri, options) {
+    var mimeType = self.parsers.accepts(req.headers['content-type']);
+
+    if (mimeType) {
+      putGraph(req, res, next, iri, options, mimeType);
+    } else {
+      putBlob(req, res, next, iri, options);
+    }
+  };
+
+  var deleteGraph = function (req, res, next, iri, options) {
+    self.graphStore.delete(iri, function (success) {
       if (!success) {
         return self.error.notFound(req, res, next);
       }
@@ -218,5 +266,25 @@ function Ldp (rdf, store, options) {
       res.end();
       next();
     }, options);
+  };
+
+  var deleteBlob = function (req, res, next, iri, options) {
+    self.blobStore.remove(iri).then(function () {
+      res.statusCode = 204; // No Content
+      res.end();
+      next();
+    }).catch(function (error) {
+      self.error.internalServerError(req, res, next);
+    })
+  };
+
+  self.del = function (req, res, next, iri, options) {
+    self.graphStore.graph(iri, function (graph) {
+      if (graph) {
+        deleteGraph(req, res, next, iri, options);
+      } else {
+        deleteBlob(req, res, next, iri, options);
+      }
+    });
   };
 }
