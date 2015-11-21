@@ -2,6 +2,7 @@ module.exports = Ldp;
 
 var concatStream = require('concat-stream');
 var mediaType = require('negotiator/lib/mediaType');
+var mimeTypeUtil = require('rdf-mime-type-util');
 var BlobStore = require('./blob-store');
 
 function Ldp (rdf, options) {
@@ -51,29 +52,12 @@ function Ldp (rdf, options) {
 
   self.log = 'log' in options ? options.log : function () {};
   self.defaultAgent = 'defaultAgent' in options ? options.defaultAgent : null;
-  self.parsers = {};
-  self.parsers['application/ld+json'] = rdf.parseJsonLd;
-  self.parsers['text/turtle'] = rdf.parseTurtle;
-
-  self.serializers = {};
-  self.serializers['text/turtle'] = rdf.serializeNTriples;
-  self.serializers['application/ld+json'] = function (g, c) {
-    rdf.serializeJsonLd(g,
-      function (j) {
-        c((JSON.stringify(j)));
-      });
-  };
-
+  self.parsers = mimeTypeUtil.parsers;
+  self.serializers = mimeTypeUtil.serializers;
   self.serializers.accepts = function (accepts) {
     contentType = mediaType(accepts).shift();
 
     return contentType in self.serializers ? contentType : null;
-  };
-
-  self.parsers.accepts = function (contentType) {
-    contentType = mediaType(contentType).shift();
-
-    return contentType in self.parsers ? contentType : null;
   };
 
   self.requestIri = function (req) {
@@ -130,7 +114,7 @@ function Ldp (rdf, options) {
     if (!mimeType) {
       self.error.notAcceptable(req, res, next);
     } else {
-      self.serializers[mimeType](graph, function (data) {
+      self.serializers.serialize(mimeType, graph, null, iri).then(function (data) {
         res.statusCode = 200; // OK
         res.setHeader('Content-Type', mimeType);
 
@@ -139,33 +123,42 @@ function Ldp (rdf, options) {
         }
 
         res.end();
-        next();
-      }, iri);
+      });
     }
   };
 
   var getBlob = function (req, res, next, iri, options) {
+    if (!self.blobStore) {
+      return next()
+    }
+
     var stream = self.blobStore.createReadStream(iri)
+
+    if (!stream) {
+      return next()
+    }
 
     stream.on('error', function (error) {
       self.error.notFound(req, res, next);
-    });
+    })
 
     if (!stream) {
-      self.error.notFound(req, res, next);
+      self.error.notFound(req, res, next)
     } else {
-      stream.pipe(res);
+      stream.pipe(res)
     }
-  };
+  }
 
   self.get = function (req, res, next, iri, options) {
-    self.graphStore.graph(iri, function (graph) {
+    options = options || {}
+
+    self.graphStore.graph(iri, null, options).then(function (graph) {
       if (graph) {
         getGraph(req, res, next, iri, options, graph)
       } else {
         getBlob(req, res, next, iri, options)
       }
-    }, options);
+    });
   };
 
   var patchGraph = function (req, res, next, iri, options, mimeType) {
@@ -174,12 +167,12 @@ function Ldp (rdf, options) {
     });
 
     req.pipe(concatStream(function (data) {
-      self.parsers[mimeType](data.toString(), function (graph) {
+      self.parsers.parse(mimeType, data.toString(), null, iri).then(function (graph) {
         if (graph == null) {
           return self.error.notAcceptable(req, res, next);
         }
 
-        self.graphStore.merge(iri, graph, function (merged) {
+        self.graphStore.merge(iri, graph, null, options).then(function (merged) {
           if (merged == null) {
             return self.error.forbidden(req, res, next);
           }
@@ -187,8 +180,8 @@ function Ldp (rdf, options) {
           res.statusCode = 204; // No Content
           res.end();
           next();
-        }, options);
-      }, iri);
+        });
+      });
     }));
   };
 
@@ -197,10 +190,11 @@ function Ldp (rdf, options) {
   };
 
   self.patch = function (req, res, next, iri, options) {
-    var mimeType = self.parsers.accepts(req.headers['content-type']);
+    //var mimeType = self.parsers.accepts();
+    var contentType = req.headers['content-type'];
 
-    if (mimeType) {
-      patchGraph(req, res, next, iri, options, mimeType);
+    if (contentType in self.parsers) {
+      patchGraph(req, res, next, iri, options, contentType);
     } else {
       patchBlob(req, res, next, iri, options)
     }
@@ -212,12 +206,12 @@ function Ldp (rdf, options) {
     });
 
     req.pipe(concatStream(function (data) {
-      self.parsers[mimeType](data.toString(), function (graph) {
+      self.parsers.parse(mimeType, data.toString(), null, iri).then(function (graph) {
         if (graph == null) {
           return self.error.notAcceptable(req, res, next);
         }
 
-        self.graphStore.add(iri, graph, function (added) {
+        self.graphStore.add(iri, graph, null, options).then(function (added) {
           if (added == null) {
             return self.error.conflict(req, res, next);
           }
@@ -225,8 +219,8 @@ function Ldp (rdf, options) {
           res.statusCode = 201; // Created
           res.end();
           next();
-        }, options);
-      }, iri);
+        });
+      });
     }));
   };
 
@@ -247,25 +241,23 @@ function Ldp (rdf, options) {
   };
 
   self.put = function (req, res, next, iri, options) {
-    var mimeType = self.parsers.accepts(req.headers['content-type']);
+    var contentType = req.headers['content-type'];
 
-    if (mimeType) {
-      putGraph(req, res, next, iri, options, mimeType);
+    if (contentType in self.parsers) {
+      putGraph(req, res, next, iri, options, contentType);
     } else {
       putBlob(req, res, next, iri, options);
     }
   };
 
   var deleteGraph = function (req, res, next, iri, options) {
-    self.graphStore.delete(iri, function (success) {
-      if (!success) {
-        return self.error.notFound(req, res, next);
-      }
-
+    self.graphStore.delete(iri, null, options).then(function () {
       res.statusCode = 204; // No Content
       res.end();
       next();
-    }, options);
+    }).catch(function (error) {
+      next(error);
+    })
   };
 
   var deleteBlob = function (req, res, next, iri, options) {
@@ -279,7 +271,7 @@ function Ldp (rdf, options) {
   };
 
   self.del = function (req, res, next, iri, options) {
-    self.graphStore.graph(iri, function (graph) {
+    self.graphStore.graph(iri, null, options).then(function (graph) {
       if (graph) {
         deleteGraph(req, res, next, iri, options);
       } else {

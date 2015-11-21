@@ -1,13 +1,14 @@
 var fsBlogstore = require('fs-blob-store')
 var http = require('http')
-var rdf = require('rdf-ext')()
+var rdf = require('rdf-ext')
 var Ldp = require('../../ldp')
+var InMemoryStore = require('rdf-store-inmemory')
 
 function LdpServer () {
   var ldp = new Ldp(rdf, {
     blobStore: fsBlogstore('.'),
     blobStoreOptions: {path: 'files'},
-    graphStore: new rdf.InMemoryStore()
+    graphStore: new InMemoryStore()
   })
   var server = http.createServer(ldp.middleware)
 
