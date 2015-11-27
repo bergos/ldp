@@ -13,7 +13,7 @@ function BlobStore (store, options) {
 }
 
 BlobStore.prototype.iriToPath = function (iri) {
-  var parsed = url.parse(iri);
+  var parsed = url.parse(iri)
   return path.join(this.path, this.buildPath(parsed))
 }
 
@@ -35,9 +35,10 @@ BlobStore.prototype.createReadStream = function (iri) {
   var self = this
 
   try {
-    return self.store.createReadStream({key: self.iriToPath(iri)});
-  } catch(error) { console.error(error.stack);
-    return null;
+    return self.store.createReadStream({key: self.iriToPath(iri)})
+  } catch(error) {
+    console.error(error.stack)
+    return null
   }
 }
 
