@@ -11,7 +11,7 @@ function Ldp (rdf, options) {
   options = options || {};
 
   this.graphStore = options.graphStore;
-  this.blobStore = !!options.blobStore ? new BlobStore(options.blobStore, options.blobStoreOptions) : null;
+  this.blobStore = options.blobStore ? new BlobStore(options.blobStore, options.blobStoreOptions || {}) : null;
 
   self.error = {};
   self.error.forbidden = function (req, res, next) {
@@ -52,10 +52,10 @@ function Ldp (rdf, options) {
 
   self.log = 'log' in options ? options.log : function () {};
   self.defaultAgent = 'defaultAgent' in options ? options.defaultAgent : null;
-  self.parsers = mimeTypeUtil.parsers;
-  self.serializers = mimeTypeUtil.serializers;
+  self.parsers = options.parsers || mimeTypeUtil.parsers;
+  self.serializers = options.serializers || mimeTypeUtil.serializers;
   self.serializers.accepts = function (accepts) {
-    contentType = mediaType(accepts).shift();
+    var contentType = mediaType(accepts).shift();
 
     return contentType in self.serializers ? contentType : null;
   };
@@ -109,7 +109,7 @@ function Ldp (rdf, options) {
   };
 
   var getGraph = function (req, res, next, iri, options, graph) {
-    var mimeType = self.serializers.accepts(req.headers.accept);
+    var mimeType = self.serializers.accepts(req.headers.accept || 'text/turtle');
 
     if (!mimeType) {
       self.error.notAcceptable(req, res, next);
@@ -251,22 +251,38 @@ function Ldp (rdf, options) {
   };
 
   var deleteGraph = function (req, res, next, iri, options) {
-    self.graphStore.delete(iri, null, options).then(function () {
-      res.statusCode = 204; // No Content
+    self.graphStore.graph(iri, null, options).then(function (exists) {
+      if (exists) {
+        return self.graphStore.delete(iri, null, options).then(function (success) {
+          return 204;
+        });
+      } else {
+        return 404;
+      }
+    }).then(function (code) {
+      res.statusCode = code;
       res.end();
       next();
-    }).catch(function (error) {
-      next(error);
-    })
+    }).catch(function () {
+      self.error.internalServerError(req, res, next)
+    });
   };
 
   var deleteBlob = function (req, res, next, iri, options) {
-    self.blobStore.remove(iri).then(function () {
-      res.statusCode = 204; // No Content
+    self.blobStore.exists(iri).then(function (exists) {
+      if (exists) {
+        return self.blobStore.remove(iri).then(function () {
+          return 204;
+        })
+      } else {
+        return 404;
+      }
+    }).then(function (code) {
+      res.statusCode = code;
       res.end();
       next();
-    }).catch(function (error) {
-      self.error.internalServerError(req, res, next);
+    }).catch(function () {
+      self.error.internalServerError(req, res, next)
     })
   };
 
