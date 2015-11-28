@@ -252,16 +252,8 @@ function Ldp (rdf, options) {
   }
 
   var deleteGraph = function (req, res, next, iri, options) {
-    self.graphStore.graph(iri, null, options).then(function (exists) {
-      if (exists) {
-        return self.graphStore.delete(iri, null, options).then(function (success) {
-          return 204
-        })
-      } else {
-        return 404
-      }
-    }).then(function (code) {
-      res.statusCode = code
+    self.graphStore.delete(iri, null, options).then(function () {
+      res.statusCode = 204
       res.end()
       next()
     }).catch(function () {
@@ -288,12 +280,15 @@ function Ldp (rdf, options) {
   }
 
   self.del = function (req, res, next, iri, options) {
+    console.log("deleting", iri)
     self.graphStore.graph(iri, null, options).then(function (graph) {
       if (graph) {
         deleteGraph(req, res, next, iri, options)
       } else {
         deleteBlob(req, res, next, iri, options)
       }
+    }).catch(function (error) {
+      self.error.notFound(req, res, next)
     })
   }
 }
