@@ -280,14 +280,13 @@ function Ldp (rdf, options) {
   }
 
   self.del = function (req, res, next, iri, options) {
-    console.log("deleting", iri)
     self.graphStore.graph(iri, null, options).then(function (graph) {
       if (graph) {
         deleteGraph(req, res, next, iri, options)
       } else {
         deleteBlob(req, res, next, iri, options)
       }
-    }).catch(function (error) {
+    }).catch(function () {
       self.error.notFound(req, res, next)
     })
   }
