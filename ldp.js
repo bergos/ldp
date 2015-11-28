@@ -151,13 +151,14 @@ function Ldp (rdf, options) {
 
   self.get = function (req, res, next, iri, options) {
     options = options || {}
-
     self.graphStore.graph(iri, null, options).then(function (graph) {
       if (graph) {
         getGraph(req, res, next, iri, options, graph)
       } else {
         getBlob(req, res, next, iri, options)
       }
+    }).catch(function () {
+      self.error.notFound(req, res, next)
     })
   }
 
