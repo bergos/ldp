@@ -121,6 +121,8 @@ function Ldp (rdf, options) {
         }
 
         res.end()
+      }).catch(function (error) {
+        self.error.internalServerError(req, res, next)
       })
     }
   }
